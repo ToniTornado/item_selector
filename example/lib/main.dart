@@ -59,7 +59,7 @@ class _ExampleAppState extends State<ExampleApp> {
           items: pages
               .map((page) => BottomNavigationBarItem(
                     icon: Icon(page.icon),
-                    title: Text(page.title!),
+                    label: page.title!,
                   ))
               .toList(),
         ),

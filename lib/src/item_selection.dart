@@ -29,9 +29,6 @@
 // Thanks to Hugo Passos.
 //
 import 'dart:collection';
-import 'dart:math';
-
-import 'package:interval_tree/interval_tree.dart';
 
 import 'item_selection_notifier.dart';
 
@@ -69,81 +66,109 @@ class ItemSelection extends ItemSelectionNotifier with IterableMixin<int?> {
   /// Creates a selection, optionally with an initial selection range from
   /// [start] to [end].
   ItemSelection([int? start, int? end]) {
+    end ??= start;
     if (start != null) {
-      _tree.add([start, end ?? start]);
+      final s = (start < end!) ? start : end;
+      final e = (start < end) ? end : start;
+      for (var i = s; i <= e; i++) {
+        if (!_selection.contains(i)) {
+          _selection.add(i);
+        }
+      }
     }
   }
 
   /// Creates a copy of the [other] selection.
-  factory ItemSelection.copy(ItemSelection other) =>
-      ItemSelection()..addAll(other);
+  factory ItemSelection.copy(ItemSelection other) => ItemSelection()..addAll(other);
 
   /// Returns `true` if this selection is empty.
-  bool get isEmpty => _tree.isEmpty;
+  bool get isEmpty => _selection.isEmpty;
 
   /// Returns `true` if this selection is not empty.
-  bool get isNotEmpty => _tree.isNotEmpty;
+  bool get isNotEmpty => _selection.isNotEmpty;
 
   /// Returns the first index in this selection.
-  int get first => _tree.first.start;
+  int get first => _selection.first;
 
   /// Returns the last index in this selection.
-  int get last => _tree.last.end;
+  int get last => _selection.last;
 
   /// Returns an iterator for iterating the indexes this selection.
-  Iterator<int?> get iterator => _ItemSelectionIterator(_tree.iterator);
+  Iterator<int?> get iterator => _selection.iterator;
 
   /// Returns `true` if this selection contains the specified [index].
   bool contains(covariant int? index) {
-    return _tree.contains([index, index]);
+    return _selection.contains(index);
   }
 
   /// Adds a selection range from [start] to [end].
   void add(int start, [int? end]) {
     end ??= start;
-    final addition = IntervalTree([start, end]);
-    addition.removeAll(_tree.intersection(addition));
-    for (final range in addition) {
-      for (int i = range.start; i <= range.end; ++i) {
+    final s = (start < end) ? start : end;
+    final e = (start < end) ? end : start;
+    for (var i = s; i <= e; i++) {
+      if (!_selection.contains(i)) {
+        _selection.add(i);
         notifyListeners(i, true);
       }
     }
-    _tree.add([start, end]);
+    // final addition = IntervalTree([start, end]);
+    // addition.removeAll(_tree.intersection(addition));
+    // for (final range in addition) {
+    //   for (int i = range.start; i <= range.end; ++i) {
+    //     notifyListeners(i, true);
+    //   }
+    // }
+    // _tree.add([start, end]);
   }
 
   /// Adds all selection ranges to this selection,
   /// that are in the [other] selection.
   void addAll(ItemSelection other) {
-    for (final iv in other._tree) {
-      add(iv.start, iv.end);
+    for (final i in other._selection) {
+      _selection.add(i);
+      notifyListeners(i, true);
     }
   }
 
   /// Removes the selection range from [start] to [end].
   void remove(int start, [int? end]) {
-    if (_tree.isEmpty) return;
-    start = max(start, first);
-    end = min(end ?? start, last);
-    final removal = _tree.intersection(IntervalTree([start, end]));
-    for (final range in removal) {
-      for (int i = range.start; i <= range.end; ++i) {
+    end ??= start;
+    final s = (start < end) ? start : end;
+    final e = (start < end) ? end : start;
+    for (var i = s; i <= e; i++) {
+      if (_selection.contains(i)) {
+        _selection.remove(i);
         notifyListeners(i, false);
       }
     }
-    final startAtBounds = _tree.contains([start - 1, start - 1]) &&
-        !_tree.contains([start - 2, start - 2]);
-    final endAtBounds = _tree.contains([end + 1, end + 1]) &&
-        !_tree.contains([end + 2, end + 2]);
-    _tree.remove([start - 1, end + 1]);
-    if (startAtBounds) _tree.add([start - 1, start - 1]);
-    if (endAtBounds) _tree.add([end + 1, end + 1]);
+    // if (_selection.isEmpty) return;
+    // start = max(start, first);
+    // end = min(end ?? start, last);
+    // final removal = _tree.intersection(IntervalTree([start, end]));
+    // for (final range in removal) {
+    //   for (int i = range.start; i <= range.end; ++i) {
+    //     notifyListeners(i, false);
+    //   }
+    // }
+    // // Remove single node
+    // if (start == end) {
+    //   _tree.remove([start, end]);
+    //   return;
+    // }
+    // final startAtBounds = _tree.contains([start - 1, start - 1]) && !_tree.contains([start - 2, start - 2]);
+    // final endAtBounds = _tree.contains([end + 1, end + 1]) && !_tree.contains([end + 2, end + 2]);
+    // _tree.remove([start - 1, end + 1]);
+    // if (startAtBounds) _tree.add([start - 1, start - 1]);
+    // if (endAtBounds) _tree.add([end + 1, end + 1]);
   }
 
   /// Removes all selection ranges from this selection,
   /// that are in the [other] selection.
   void removeAll(ItemSelection other) {
-    for (final iv in other._tree) {
-      remove(iv.start, iv.end);
+    for (final i in other._selection) {
+      _selection.remove(i);
+      notifyListeners(i, false);
     }
   }
 
@@ -151,73 +176,56 @@ class ItemSelection extends ItemSelectionNotifier with IterableMixin<int?> {
   /// [end] so that no changes are notified for the overlapping range.
   void replace(int start, [int? end]) {
     end ??= start;
+    final s = (start < end) ? start : end;
+    final e = (start < end) ? end : start;
+    final newSelection = <int>{};
 
-    final newTree = IntervalTree([start, end]);
-    final overlap = _tree.intersection(newTree);
-
-    final removal = IntervalTree.of(_tree);
-    removal.removeAll(newTree);
-    for (final range in removal) {
-      for (int i = range.start; i <= range.end; ++i) {
-        if (!overlap.contains([i, i])) {
-          notifyListeners(i, false);
-        }
+    for (final i in _selection) {
+      if (i < s || i > e) {
+        notifyListeners(i, false);
       }
     }
-
-    final addition = IntervalTree.of(newTree);
-    addition.removeAll(removal);
-    for (final range in addition) {
-      for (int i = range.start; i <= range.end; ++i) {
-        if (!overlap.contains([i, i])) {
-          notifyListeners(i, true);
-        }
+    for (var i = s; i <= e; i++) {
+      newSelection.add(i);
+      if (!_selection.contains(i)) {
+        notifyListeners(i, true);
       }
     }
-
-    _tree = newTree;
+    _selection = newSelection;
+    //
+    // final newTree = IntervalTree([start, end]);
+    // final overlap = _tree.intersection(newTree);
+    //
+    // final removal = IntervalTree.of(_tree);
+    // removal.removeAll(newTree);
+    // for (final range in removal) {
+    //   for (int i = range.start; i <= range.end; ++i) {
+    //     if (!overlap.contains([i, i])) {
+    //       notifyListeners(i, false);
+    //     }
+    //   }
+    // }
+    //
+    // final addition = IntervalTree.of(newTree);
+    // addition.removeAll(removal);
+    // for (final range in addition) {
+    //   for (int i = range.start; i <= range.end; ++i) {
+    //     if (!overlap.contains([i, i])) {
+    //       notifyListeners(i, true);
+    //     }
+    //   }
+    // }
+    //
+    // _tree = newTree;
   }
 
   /// Clears this selection.
   void clear() {
-    for (final range in _tree) {
-      for (int i = range.start; i <= range.end; ++i) {
-        notifyListeners(i, false);
-      }
+    for (final i in _selection) {
+      notifyListeners(i, false);
     }
-    _tree.clear();
+    _selection.clear();
   }
 
-  IntervalTree _tree = IntervalTree();
-}
-
-class _ItemSelectionIterator extends Iterator<int?> {
-  _ItemSelectionIterator(this._ranges);
-
-  /// Returns the current value.
-  @override
-  int? get current => _current;
-
-  /// Iterates to the next value and returns `true` on success, or `false`
-  /// otherwise.
-  @override
-  bool moveNext() {
-    if (_current == null) {
-      if (!_ranges.moveNext()) return false;
-      _current = _ranges.current.start;
-    } else {
-      _current = _current! + 1;
-    }
-    if (!_ranges.current.contains(Interval(_current, _current))) {
-      if (!_ranges.moveNext()) {
-        _current = null;
-        return false;
-      }
-      _current = _ranges.current.start;
-    }
-    return true;
-  }
-
-  int? _current;
-  Iterator<Interval> _ranges;
+  var _selection = <int>{};
 }

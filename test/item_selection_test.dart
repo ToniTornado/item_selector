@@ -56,13 +56,14 @@ void main() {
     selection.add(7, 9);
     selection.add(13, 15);
     selection.add(1, 3);
-
-    expect(selection.toList(), [1, 2, 3, 7, 8, 9, 13, 14, 15]);
-    expect(selection.isEmpty, isFalse);
-    expect(selection.isNotEmpty, isTrue);
-    expect(selection.first, 1);
-    expect(selection.last, 15);
-    expect(selection.length, 9);
+    final result = selection.toList();
+    result.sort();
+    expect(result, [1, 2, 3, 7, 8, 9, 13, 14, 15]);
+    expect(result.isEmpty, isFalse);
+    expect(result.isNotEmpty, isTrue);
+    expect(result.first, 1);
+    expect(result.last, 15);
+    expect(result.length, 9);
     expect(() => selection.single, throwsStateError);
   });
 
@@ -97,11 +98,16 @@ void main() {
     expect(listener.takeAll(), {4: true, 5: true});
 
     selection.add(3);
-    expect(selection.toList(), [0, 1, 2, 3, 4, 5]);
+
+    final result1 = selection.toList();
+    result1.sort();
+    expect(result1, [0, 1, 2, 3, 4, 5]);
     expect(listener.takeAll(), {3: true});
 
     selection.add(3);
-    expect(selection.toList(), [0, 1, 2, 3, 4, 5]);
+    final result2 = selection.toList();
+    result2.sort();
+    expect(result2, [0, 1, 2, 3, 4, 5]);
     expect(listener.takeAll(), {});
   });
 
@@ -145,6 +151,19 @@ void main() {
     selection.remove(3);
     expect(selection.toList(), []);
     expect(listener.takeAll(), {});
+
+    final incrementalSelection = ItemSelection()
+      ..add(0, 0)
+      ..add(1, 1)
+      ..add(2, 2)
+      ..add(3)
+      ..add(4)
+      ..add(5);
+    ItemSelectionListener incrementalListener = ItemSelectionListener(incrementalSelection, 0, 5);
+
+    incrementalSelection.remove(3);
+    expect(incrementalSelection.toList(), [0, 1, 2, 4, 5]);
+    expect(incrementalListener.takeAll(), {3: false});
   });
 
   test('removeAll', () {
@@ -165,20 +184,27 @@ void main() {
     ItemSelectionListener listener = ItemSelectionListener(selection, 0, 5);
 
     selection.replace(1, 4);
-    expect(selection.toList(), [1, 2, 3, 4]);
+    final result = selection.toList();
+    result.sort();
+    expect(result, [1, 2, 3, 4]);
     expect(listener.takeAll(), {0: false, 5: false});
 
     selection.replace(2, 5);
-    expect(selection.toList(), [2, 3, 4, 5]);
+    final result2 = selection.toList();
+    result2.sort();
+    expect(result2, [2, 3, 4, 5]);
     expect(listener.takeAll(), {1: false, 5: true});
 
     selection.replace(0, 2);
-    expect(selection.toList(), [0, 1, 2]);
-    expect(
-        listener.takeAll(), {0: true, 1: true, 3: false, 4: false, 5: false});
+    final result3 = selection.toList();
+    result3.sort();
+    expect(result3, [0, 1, 2]);
+    expect(listener.takeAll(), {0: true, 1: true, 3: false, 4: false, 5: false});
 
     selection.replace(0, 2);
-    expect(selection.toList(), [0, 1, 2]);
+    final result4 = selection.toList();
+    result4.sort();
+    expect(result4, [0, 1, 2]);
     expect(listener.takeAll(), {});
   });
 
